@@ -1,0 +1,230 @@
+name: Unity Build Automation for RC Branches
+
+on:
+  create:
+    branches:
+      - rc/*
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: "Branch name to run the workflow for."
+        required: false
+        default: ""
+
+env:
+  UNITY_API_BASE_URL: https://build-api.cloud.unity3d.com/api/v1
+  UNITY_API_TOKEN: ${{ secrets.UNITY_API_TOKEN }}
+  ORG_ID: ${{ vars.UNITY_ORG_ID }}
+  PROJECT_ID: ${{ vars.UNITY_PRODUCT_ID }}
+  BUNDLE_ID: ${{ vars.BUNDLE_ID }}
+  ANDROID_SDK_VERSION: ${{ vars.ANDROID_SDK_VERSION }}
+  X_CODE_VERSION: ${{ vars.X_CODE_VERSION }}
+
+jobs:
+  setup-unity-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Up Unity Build Targets and Groups
+        env:
+          IOS_CREDENTIAL_ID: ${{ secrets.IOS_CREDENTIAL_ID }}
+          ANDROID_CREDENTIAL_ID: ${{ secrets.ANDROID_CREDENTIAL_ID }}
+        run: |
+          set -e
+
+          # Extract the branch name
+          if [[ "${{ github.event.inputs.branch_name }}" != "" ]]; then
+            BRANCH_NAME="${{ github.event.inputs.branch_name }}"
+            echo "Custom branch provided via manual dispatch: $BRANCH_NAME"
+          else
+            BRANCH_NAME=${{ github.ref_name }}
+            echo "Default branch triggered via event: $BRANCH_NAME"
+          fi
+
+          echo "Sanitizing Original Branch Name: $BRANCH_NAME"
+          SANITIZED_BRANCH_NAME=$(echo "${BRANCH_NAME}" | sed -E 's/[^a-zA-Z0-9_-]+/_/g; s/^_+|_+$//g')
+
+          echo "Sanitized Build Target Name: ${SANITIZED_BRANCH_NAME}"
+
+          if [ -z "$ANDROID_SDK_VERSION" ]; then
+            ANDROID_SDK_VERSION="android_sdk_34"
+            echo "ANDROID_SDK_VERSION not set in vars. Using default value: $ANDROID_SDK_VERSION"
+          else
+            echo "ANDROID_SDK_VERSION provided: $ANDROID_SDK_VERSION"
+          fi
+          
+          if [ -z "$X_CODE_VERSION" ]; then
+            X_CODE_VERSION="xcode16_1_0"
+            echo "X_CODE_VERSION not set in vars. Using default value: $X_CODE_VERSION"
+          else
+            echo "X_CODE_VERSION provided: $X_CODE_VERSION"
+          fi
+
+          # Constants for Unity Cloud Build
+          OPERATING_SYSTEM_SELECTED="mac"
+          OPERATING_SYSTEM_VERSION="sonomaSilicon"
+          MACHINE_TYPE="orka_premium_v1"
+          ARCHITECTURE="AppleSilicon"
+
+          # Define the environments
+          ENVIRONMENTS=("development" "production")
+
+          for ENV in "${ENVIRONMENTS[@]}"; do
+            echo "Creating build targets for environment: $ENV"
+
+            # Determine environment-specific variables
+            if [[ "$ENV" == "production" ]]; then
+              AUTO_BUILD=false
+              AUTO_CANCEL=false
+              BUILD_OPTIONS="[]"
+            elif [[ "$ENV" == "development" ]]; then
+              AUTO_BUILD=false
+              AUTO_CANCEL=false
+              BUILD_OPTIONS="[\"Development\"]"
+            fi
+
+            # Initialize array to store successful build target IDs
+            BUILD_TARGET_IDS=()
+
+            # -------- 1. Create Android Build Target --------
+            if [[ -n "$ANDROID_CREDENTIAL_ID" ]]; then
+              echo "Creating Android Build Target..."
+              ANDROID_RESPONSE=$(curl -s -X POST "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildtargets" \
+                -H "Authorization: Bearer $UNITY_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"name\": \"${ENV}-android-${SANITIZED_BRANCH_NAME}\",
+                  \"platform\": \"android\",
+                  \"enabled\": true,
+                  \"settings\": {
+                    \"autoBuild\": $AUTO_BUILD,
+                    \"operatingSystemSelected\": \"$OPERATING_SYSTEM_SELECTED\",
+                    \"operatingSystemVersion\": \"$OPERATING_SYSTEM_VERSION\",
+                    \"machineTypeLabel\": \"$MACHINE_TYPE\",
+                    \"autoBuildCancellation\": $AUTO_CANCEL,
+                    \"architecture\": \"$ARCHITECTURE\",
+                    \"autoDetectUnityVersion\": true,
+                    \"fallbackPatchVersion\": true,
+                    \"scm\": {
+                      \"type\": \"git\",
+                      \"branch\": \"${BRANCH_NAME}\"
+                    },
+                    \"platform\": {
+                      \"bundleId\": \"$BUNDLE_ID\"
+                    },
+                    \"advanced\": {
+                      \"unity\": {
+                        \"playerExporter\": {
+                          \"buildOptions\": ${BUILD_OPTIONS}
+                        }
+                      },
+                      \"android\": {
+                        \"androidSDKVersion\": \"$ANDROID_SDK_VERSION\"
+                      }
+                    }
+                  },
+                  \"credentials\": {
+                    \"signing\": {
+                      \"credentialid\": \"$ANDROID_CREDENTIAL_ID\"
+                    }
+                  }
+                }")
+
+              echo "Android Build Target Response:"
+              echo "$ANDROID_RESPONSE" | jq .
+
+              ANDROID_BUILD_TARGET_ID=$(echo "$ANDROID_RESPONSE" | jq -r '.buildtargetid')
+
+              if [[ "$ANDROID_BUILD_TARGET_ID" != "null" && -n "$ANDROID_BUILD_TARGET_ID" ]]; then
+                echo "Android Build Target Created: $ANDROID_BUILD_TARGET_ID"
+                BUILD_TARGET_IDS+=("$ANDROID_BUILD_TARGET_ID")
+              else
+                echo "Failed to create Android Build Target for environment: $ENV"
+              fi
+            else
+              echo "Skipping Android Build Target creation: Missing credentials."
+            fi
+
+            # -------- 2. Create iOS Build Target --------
+            if [[ -n "$IOS_CREDENTIAL_ID" ]]; then
+              echo "Creating iOS Build Target..."
+              IOS_RESPONSE=$(curl -s -X POST "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildtargets" \
+                -H "Authorization: Bearer $UNITY_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"name\": \"${ENV}-ios-${SANITIZED_BRANCH_NAME}\",
+                  \"platform\": \"ios\",
+                  \"enabled\": true,
+                  \"settings\": {
+                    \"autoBuild\": $AUTO_BUILD,
+                    \"operatingSystemSelected\": \"$OPERATING_SYSTEM_SELECTED\",
+                    \"operatingSystemVersion\": \"$OPERATING_SYSTEM_VERSION\",
+                    \"machineTypeLabel\": \"$MACHINE_TYPE\",
+                    \"autoBuildCancellation\": $AUTO_CANCEL,
+                    \"architecture\": \"$ARCHITECTURE\",
+                    \"autoDetectUnityVersion\": true,
+                    \"fallbackPatchVersion\": true,
+                    \"scm\": {
+                      \"type\": \"git\",
+                      \"branch\": \"${BRANCH_NAME}\"
+                    },
+                    \"platform\": {
+                      \"bundleId\": \"$BUNDLE_ID\",
+                      \"xcodeVersion\": \"$X_CODE_VERSION\"
+                    },
+                    \"advanced\": {
+                      \"unity\": {
+                        \"playerExporter\": {
+                          \"buildOptions\": ${BUILD_OPTIONS}
+                        }
+                      }
+                    }
+                  },
+                  \"credentials\": {
+                    \"signing\": {
+                      \"credentialid\": \"$IOS_CREDENTIAL_ID\"
+                    }
+                  }
+                }")
+
+              echo "iOS Build Target Response:"
+              echo "$IOS_RESPONSE" | jq .
+
+              IOS_BUILD_TARGET_ID=$(echo "$IOS_RESPONSE" | jq -r '.buildtargetid')
+
+              if [[ "$IOS_BUILD_TARGET_ID" != "null" && -n "$IOS_BUILD_TARGET_ID" ]]; then
+                echo "iOS Build Target Created: $IOS_BUILD_TARGET_ID"
+                BUILD_TARGET_IDS+=("$IOS_BUILD_TARGET_ID")
+              else
+                echo "Failed to create iOS Build Target for environment: $ENV"
+              fi
+            else
+              echo "Skipping iOS Build Target creation: Missing credentials."
+            fi
+
+            # -------- 3. Create Build Group --------
+            if [[ ${#BUILD_TARGET_IDS[@]} -gt 0 ]]; then
+              echo "Creating Build Group with targets: ${BUILD_TARGET_IDS[*]}"
+          
+              BUILD_TARGET_IDS_JSON=$(printf '%s\n' "${BUILD_TARGET_IDS[@]}" | jq -R . | jq -s .)
+
+              BUILD_GROUP_RESPONSE=$(curl -s -X POST "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildTargetGroups" \
+                -H "Authorization: Bearer $UNITY_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{
+                \"name\": \"${ENV}-group-${SANITIZED_BRANCH_NAME}\",
+                \"description\": \"${BRANCH_NAME} Build group for ${ENV}\",
+                \"buildTargetIds\": $BUILD_TARGET_IDS_JSON
+              }")
+
+              echo "Build Group Response:"
+              echo "$BUILD_GROUP_RESPONSE" | jq .
+            else
+              echo "No Build Targets created for $ENV. Skipping Build Group creation."
+            fi
+          done
+
+          echo "All environments processed successfully!"
