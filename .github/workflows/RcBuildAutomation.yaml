@@ -1,6 +1,15 @@
 name: Unity Build Automation for RC Branches
 
-on: workflow_call
+
+on:
+  workflow_call:
+    secrets:
+      UNITY_API_TOKEN:
+        required: true
+      IOS_CREDENTIAL_ID:
+        required: false
+      ANDROID_CREDENTIAL_ID:
+        required: false
 
 env:
   UNITY_API_BASE_URL: https://build-api.cloud.unity3d.com/api/v1
