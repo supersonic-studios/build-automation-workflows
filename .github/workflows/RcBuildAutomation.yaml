@@ -1,15 +1,6 @@
 name: Unity Build Automation for RC Branches
 
-on:
-  create:
-    branches:
-      - rc/*
-  workflow_dispatch:
-    inputs:
-      branch_name:
-        description: "Branch name to run the workflow for."
-        required: false
-        default: ""
+on: workflow_call
 
 env:
   UNITY_API_BASE_URL: https://build-api.cloud.unity3d.com/api/v1
