@@ -29,7 +29,7 @@ You can use this reusable workflow in your repository by referencing it in your 
 
 ### Integration
 - Configure your `.github/workflows` YAML file to invoke the reusable workflow by referencing:
-uses: supersonic-studios/build-automation-workflows/.github/workflows/RcBuildAutomation.yml@v<version-number>
+```uses: supersonic-studios/build-automation-workflows/.github/workflows/RcBuildAutomation.yml@v<version-number>```
 
 ---
 
