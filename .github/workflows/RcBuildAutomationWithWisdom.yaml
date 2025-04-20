@@ -9,6 +9,12 @@ on:
         required: false
       ANDROID_CREDENTIAL_ID:
         required: false
+      GOOGLE_PLAY_JSON_BASE64:
+        required: false
+      FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
 
 env:
   UNITY_API_BASE_URL: https://build-api.cloud.unity3d.com/api/v1
@@ -19,6 +25,9 @@ env:
   ANDROID_SDK_VERSION: ${{ vars.ANDROID_SDK_VERSION }}
   UGS_ENVIRONMENT: ${{ vars.CUSTOM_ENVIRONMENTS }}
   X_CODE_VERSION: ${{ vars.X_CODE_VERSION }}
+  VERSION_CODE: ${{ vars.VERSION_CODE }}
+  VERSION_NAME: ${{ vars.VERSION_NAME }}
+  UPLOAD_TO_STORE: ${{ vars.UPLOAD_TO_STORE }}
 
 jobs:
   setup-unity-build:
@@ -32,6 +41,10 @@ jobs:
         env:
           IOS_CREDENTIAL_ID: ${{ secrets.IOS_CREDENTIAL_ID }}
           ANDROID_CREDENTIAL_ID: ${{ secrets.ANDROID_CREDENTIAL_ID }}
+          GOOGLE_PLAY_JSON_BASE64: ${{ secrets.GOOGLE_PLAY_JSON_BASE64 }}
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          
         run: |
           set -e
 
@@ -89,11 +102,13 @@ jobs:
             echo "Creating build targets for environment: $ENV"
 
             # Determine environment-specific variables
+            BUILD_APP_BUNDLE=false
             if [[ "$ENV" == "production" ]]; then
               AUTO_BUILD=false
               AUTO_CANCEL=false
               BUILD_OPTIONS="[]"
               SCRIPTING_DEFINE_SYMBOLS="UGS_PRODUCTION"
+              BUILD_APP_BUNDLE=true
             elif [[ "$ENV" == "development" ]]; then
               AUTO_BUILD=false
               AUTO_CANCEL=false
@@ -107,6 +122,7 @@ jobs:
             fi
 
             echo "Script Define Symbols for ${ENV}: $SCRIPTING_DEFINE_SYMBOLS"
+            echo "Build App Bundles: ${BUILD_APP_BUNDLE}"
 
             # -------- 1. Create Android Build Target --------
             if [[ -n "$ANDROID_CREDENTIAL_ID" ]]; then
@@ -142,15 +158,23 @@ jobs:
                         }
                       },
                       \"android\": {
-                        \"androidSDKVersion\": \"$ANDROID_SDK_VERSION\"
+                        \"androidSDKVersion\": \"$ANDROID_SDK_VERSION\",
+                        \"buildAppBundle\": ${BUILD_APP_BUNDLE}
                       }
-                    }
+                    },
+                    \"preBuildScript\": \"./Scripts/pre-build.sh\",
+                    \"postBuildScript\": \"./Scripts/post-build.sh\"
                   },
                   \"credentials\": {
                     \"signing\": {
                       \"credentialid\": \"$ANDROID_CREDENTIAL_ID\"
                     }
-                  }
+                  },
+                  \"environmentVariables\": [
+                    { \"name\": \"VERSION_CODE\", \"value\": \"${VERSION_CODE}\" },
+                    { \"name\": \"GOOGLE_PLAY_JSON_BASE64\", \"value\": \"${GOOGLE_PLAY_JSON_BASE64}\" },
+                    { \"name\": \"UPLOAD_TO_STORE\", \"value\": \"${UPLOAD_TO_STORE}\" }
+                  ]
                 }")
 
               echo "Android Build Target Response:"
@@ -200,14 +224,28 @@ jobs:
                         \"playerExporter\": {
                           \"buildOptions\": ${BUILD_OPTIONS}
                         }
+                      },
+                      \"xcode\": {
+                        \"customFastlaneConfigPath\": \"./Config/fastlane/Fastfile\",
+                        \"uploadXCArchive\": true
                       }
-                    }
+                    },
+                    \"preBuildScript\": \"./Scripts/pre-build.sh\",
+                    \"postBuildScript\": \"./Scripts/post-build.sh\"
                   },
                   \"credentials\": {
                     \"signing\": {
                       \"credentialid\": \"$IOS_CREDENTIAL_ID\"
                     }
-                  }
+                  },
+                  \"environmentVariables\": [
+                    { \"name\": \"VERSION_CODE\", \"value\": \"${VERSION_CODE}\" },
+                    { \"name\": \"VERSION_NAME\", \"value\": \"${VERSION_NAME}\" },
+                    { \"name\": \"TEAM_ID\", \"value\": \"${TEAM_ID}\" },
+                    { \"name\": \"FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD\", \"value\": \"${FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD}\" },
+                    { \"name\": \"APPLE_ID\", \"value\": \"${APPLE_ID}\" },
+                    { \"name\": \"UPLOAD_TO_STORE\", \"value\": \"${UPLOAD_TO_STORE}\" }
+                  ]
                 }")
 
               echo "iOS Build Target Response:"
