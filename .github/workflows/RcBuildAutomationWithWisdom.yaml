@@ -28,7 +28,8 @@ env:
   VERSION_CODE: ${{ vars.VERSION_CODE }}
   VERSION_NAME: ${{ vars.VERSION_NAME }}
   UPLOAD_TO_STORE: ${{ vars.UPLOAD_TO_STORE }}
-
+  TEAM_ID: ${{ vars.TEAM_ID }}
+  
 jobs:
   setup-unity-build:
     runs-on: ubuntu-latest
