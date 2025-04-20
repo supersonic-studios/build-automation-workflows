@@ -1,0 +1,5 @@
+export_options(
+  provisioningProfiles: {
+    "your.app.id" => "provisioning-profile-uuid",
+  }
+)

@@ -1,0 +1,63 @@
+# Fastlane for Android Deployment
+default_platform(:android)
+
+platform :android do
+  lane :upload_to_internal_track do
+    desc "Build and deploy Android APK or AAB to Google Play"
+
+    # Environment variables configured via Unity Cloud Build (or elsewhere)
+    key_file_path = ENV["GOOGLE_JSON_PATH"] # Full path to google-services.json
+    unity_aab_path = ENV["UNITY_PLAYER_PATH"] # Unity build artifact path
+    package_name = ENV["PACKAGE_NAME"] # Package name coming through ENV
+
+    # Validations
+    if !File.exist?(key_file_path)
+      UI.error("Google Play Key not found at: #{key_file_path}")a
+      exit(1)
+    end
+
+    if !File.exist?(unity_aab_path)
+      UI.error("Unity AAB file not found at: #{unity_aab_path}")
+      exit(1)
+    end
+
+    if package_name.nil? || package_name.empty?
+      UI.error("Package name is not set!")
+      exit(1)
+    end
+
+    # Upload to Google Play
+    upload_to_play_store(
+      track: "internal", # Track to upload to (e.g., internal, alpha, beta, production)
+      aab: unity_aab_path, # Unity-generated `.aab` file to upload
+      json_key: key_file_path, # Path to your JSON key file
+      package_name: package_name, # Package name extracted from build JSON
+      version_code: ENV["VERSION_CODE"],
+      version_name: ENV["VERSION_NAME"],
+      release_status: "draft" # Draft release status
+    )
+  end
+end
+
+platform :ios do
+  lane :change_versions do
+  # Increment version in Info.plist
+  increment_version_number(xcodeproj: "Unity-iPhone.xcodeproj", version_number: ENV["VERSION_NUMBER"])
+
+  # Increment build number automatically
+  increment_build_number(xcodeproj: "Unity-iPhone.xcodeproj", build_number: ENV["BUILD_NUMBER"])
+  end
+  
+  lane :upload_build do
+    desc "Upload iOS Build to TestFlight"
+    # Upload the iOS build to TestFlight
+    upload_to_testflight(
+      skip_submission: true, 
+      skip_waiting_for_build_processing: true,
+      apple_id: ENV["APPLE_ID"],
+      build_number: ENV["BUILD_NUMBER"],
+      team_id: ENV["TEAM_ID"]
+    )
+  end
+end
+
