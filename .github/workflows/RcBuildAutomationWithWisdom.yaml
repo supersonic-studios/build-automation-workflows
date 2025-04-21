@@ -170,12 +170,7 @@ jobs:
                     \"signing\": {
                       \"credentialid\": \"$ANDROID_CREDENTIAL_ID\"
                     }
-                  },
-                  \"environmentVariables\": [
-                    { \"name\": \"VERSION_CODE\", \"value\": \"${VERSION_CODE}\" },
-                    { \"name\": \"GOOGLE_PLAY_JSON_BASE64\", \"value\": \"${GOOGLE_PLAY_JSON_BASE64}\" },
-                    { \"name\": \"UPLOAD_TO_STORE\", \"value\": \"${UPLOAD_TO_STORE}\" }
-                  ]
+                  }
                 }")
 
               echo "Android Build Target Response:"
@@ -184,6 +179,18 @@ jobs:
               ANDROID_BUILD_TARGET_ID=$(echo "$ANDROID_RESPONSE" | jq -r '.buildtargetid')
               if [[ "$ANDROID_BUILD_TARGET_ID" != "null" && -n "$ANDROID_BUILD_TARGET_ID" ]]; then
                 echo "Android Build Target Created: $ANDROID_BUILD_TARGET_ID"
+
+                # Add environment variables using the correct format
+                curl -s -X POST "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildtargets/$ANDROID_BUILD_TARGET_ID/envvars" \
+                -H "Authorization: Bearer $UNITY_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"envvars\": {
+                    \"VERSION_CODE\": \"${VERSION_CODE}\",
+                    \"GOOGLE_PLAY_JSON_BASE64\": \"${GOOGLE_PLAY_JSON_BASE64}\",
+                    \"UPLOAD_TO_STORE\": \"${UPLOAD_TO_STORE}\"
+                  }
+                }"
               else
                 echo "Failed to create Android Build Target. Response: $ANDROID_RESPONSE"
                 continue
@@ -238,15 +245,7 @@ jobs:
                     \"signing\": {
                       \"credentialid\": \"$IOS_CREDENTIAL_ID\"
                     }
-                  },
-                  \"environmentVariables\": [
-                    { \"name\": \"VERSION_CODE\", \"value\": \"${VERSION_CODE}\" },
-                    { \"name\": \"VERSION_NAME\", \"value\": \"${VERSION_NAME}\" },
-                    { \"name\": \"TEAM_ID\", \"value\": \"${TEAM_ID}\" },
-                    { \"name\": \"FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD\", \"value\": \"${FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD}\" },
-                    { \"name\": \"APPLE_ID\", \"value\": \"${APPLE_ID}\" },
-                    { \"name\": \"UPLOAD_TO_STORE\", \"value\": \"${UPLOAD_TO_STORE}\" }
-                  ]
+                  }
                 }")
 
               echo "iOS Build Target Response:"
@@ -255,6 +254,20 @@ jobs:
               IOS_BUILD_TARGET_ID=$(echo "$IOS_RESPONSE" | jq -r '.buildtargetid')
               if [[ "$IOS_BUILD_TARGET_ID" != "null" && -n "$IOS_BUILD_TARGET_ID" ]]; then
                 echo "iOS Build Target Created: $IOS_BUILD_TARGET_ID"
+
+                # Add environment variables using the correct format
+                curl -s -X POST "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildtargets/$IOS_BUILD_TARGET_ID/envvars" \
+                -H "Authorization: Bearer $UNITY_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"envvars\": {
+                    \"VERSION_NAME\": \"${VERSION_NAME}\",
+                    \"TEAM_ID\": \"${TEAM_ID}\",
+                    \"FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD\": \"${FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD}\",
+                    \"APPLE_ID\": \"${APPLE_ID}\",
+                    \"UPLOAD_TO_STORE\": \"${UPLOAD_TO_STORE}\"
+                  }
+                }"
               else
                 echo "Failed to create iOS Build Target. Response: $IOS_RESPONSE"
                 continue
