@@ -156,15 +156,15 @@ jobs:
                         \"scriptingDefineSymbols\": \"${SCRIPTING_DEFINE_SYMBOLS}\",
                         \"playerExporter\": {
                           \"buildOptions\": ${BUILD_OPTIONS}
-                        }
+                        },
+                        \"preBuildScript\": \"BuildScripts/pre_script_publish.sh\",
+                        \"postBuildScript\": \"BuildScripts/post_build_script.sh\"
                       },
                       \"android\": {
                         \"androidSDKVersion\": \"$ANDROID_SDK_VERSION\",
                         \"buildAppBundle\": ${BUILD_APP_BUNDLE}
                       }
-                    },
-                    \"preBuildScript\": \"./Scripts/pre-build.sh\",
-                    \"postBuildScript\": \"./Scripts/post-build.sh\"
+                    }
                   },
                   \"credentials\": {
                     \"signing\": {
@@ -231,15 +231,15 @@ jobs:
                         \"scriptingDefineSymbols\": \"${SCRIPTING_DEFINE_SYMBOLS}\",
                         \"playerExporter\": {
                           \"buildOptions\": ${BUILD_OPTIONS}
-                        }
+                        },
+                        \"preBuildScript\": \"BuildScripts/pre_script_publish.sh\",
+                        \"postBuildScript\": \"BuildScripts/post_build_script.sh\"
                       },
                       \"xcode\": {
-                        \"customFastlaneConfigPath\": \"./Config/fastlane/Fastfile\",
+                        \"customFastlaneConfigPath\": \"fastlane/ucb_xcode_fastlane.json\",
                         \"uploadXCArchive\": true
                       }
-                    },
-                    \"preBuildScript\": \"./Scripts/pre-build.sh\",
-                    \"postBuildScript\": \"./Scripts/post-build.sh\"
+                    }
                   },
                   \"credentials\": {
                     \"signing\": {
