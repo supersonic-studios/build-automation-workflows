@@ -181,7 +181,7 @@ jobs:
                 echo "Android Build Target Created: $ANDROID_BUILD_TARGET_ID"
 
                 # Add environment variables using the correct format
-                curl -s -X POST "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildtargets/$ANDROID_BUILD_TARGET_ID/envvars" \
+                curl -s -X PUT "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildtargets/$ANDROID_BUILD_TARGET_ID/envvars" \
                 -H "Authorization: Bearer $UNITY_API_TOKEN" \
                 -H "Content-Type: application/json" \
                 -d "{
@@ -256,7 +256,7 @@ jobs:
                 echo "iOS Build Target Created: $IOS_BUILD_TARGET_ID"
 
                 # Add environment variables using the correct format
-                curl -s -X POST "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildtargets/$IOS_BUILD_TARGET_ID/envvars" \
+                curl -s -X PUT "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildtargets/$IOS_BUILD_TARGET_ID/envvars" \
                 -H "Authorization: Bearer $UNITY_API_TOKEN" \
                 -H "Content-Type: application/json" \
                 -d "{
