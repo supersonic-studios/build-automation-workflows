@@ -28,8 +28,7 @@ env:
   X_CODE_VERSION: ${{ vars.X_CODE_VERSION }}
   VERSION_CODE: ${{ vars.VERSION_CODE }}
   VERSION_NAME: ${{ vars.VERSION_NAME }}
-  UPLOAD_TO_STORE: ${{ vars.UPLOAD_TO_STORE }}
-  TEAM_ID: ${{ vars.TEAM_ID }}
+  TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
 
 jobs:
   setup-unity-build:
@@ -210,7 +209,6 @@ jobs:
                   \"envvars\": {
                     \"VERSION_CODE\": \"${VERSION_CODE}\",
                     \"GOOGLE_PLAY_JSON_BASE64\": \"${GOOGLE_PLAY_JSON_BASE64}\",
-                    \"UPLOAD_TO_STORE\": \"${UPLOAD_TO_STORE}\",
                     \"ANDROID_PLAY_STORE_TRACK\": \"${ANDROID_PLAY_STORE_TRACK}\"
                   }
                 }"
@@ -287,8 +285,7 @@ jobs:
                     \"VERSION_NAME\": \"${VERSION_NAME}\",
                     \"TEAM_ID\": \"${TEAM_ID}\",
                     \"FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD\": \"${FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD}\",
-                    \"APPLE_ID\": \"${APPLE_ID}\",
-                    \"UPLOAD_TO_STORE\": \"${UPLOAD_TO_STORE}\"
+                    \"APPLE_ID\": \"${APPLE_ID}\"
                   }
                 }"
               else
