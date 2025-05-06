@@ -16,7 +16,8 @@ env:
   UNITY_API_TOKEN: ${{ secrets.UNITY_API_TOKEN }}
   ORG_ID: ${{ vars.UNITY_ORG_ID }}
   PROJECT_ID: ${{ vars.UNITY_PRODUCT_ID }}
-  BUNDLE_ID: ${{ vars.BUNDLE_ID }}
+  ANDROID_BUNDLE_ID: ${{ vars.ANDROID_BUNDLE_ID }}
+  IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
   ANDROID_SDK_VERSION: ${{ vars.ANDROID_SDK_VERSION }}
   X_CODE_VERSION: ${{ vars.X_CODE_VERSION }}
 
@@ -113,7 +114,7 @@ jobs:
                       \"branch\": \"${BRANCH_NAME}\"
                     },
                     \"platform\": {
-                      \"bundleId\": \"$BUNDLE_ID\"
+                      \"bundleId\": \"$ANDROID_BUNDLE_ID\"
                     },
                     \"advanced\": {
                       \"unity\": {
@@ -172,7 +173,7 @@ jobs:
                       \"branch\": \"${BRANCH_NAME}\"
                     },
                     \"platform\": {
-                      \"bundleId\": \"$BUNDLE_ID\",
+                      \"bundleId\": \"$IOS_BUNDLE_ID\",
                       \"xcodeVersion\": \"$X_CODE_VERSION\"
                     },
                     \"advanced\": {
