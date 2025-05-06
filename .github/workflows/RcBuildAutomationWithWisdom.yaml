@@ -178,8 +178,8 @@ jobs:
                         \"playerExporter\": {
                           \"buildOptions\": ${BUILD_OPTIONS}
                         },
-                        \"preBuildScript\": \"BuildScripts/pre_script_publish.sh\",
-                        \"postBuildScript\": \"BuildScripts/post_build_script.sh\"
+                        \"preBuildScript\": \"SwBuildScripts/pre_script_publish.sh\",
+                        \"postBuildScript\": \"SwBuildScripts/post_build_script.sh\"
                       },
                       \"android\": {
                         \"androidSDKVersion\": \"$ANDROID_SDK_VERSION\",
@@ -253,8 +253,8 @@ jobs:
                         \"playerExporter\": {
                           \"buildOptions\": ${BUILD_OPTIONS}
                         },
-                        \"preBuildScript\": \"BuildScripts/pre_script_publish.sh\",
-                        \"postBuildScript\": \"BuildScripts/post_build_script.sh\"
+                        \"preBuildScript\": \"SwBuildScripts/pre_script_publish.sh\",
+                        \"postBuildScript\": \"SwBuildScripts/post_build_script.sh\"
                       },
                       \"xcode\": {
                         \"customFastlaneConfigPath\": \"fastlane/ucb_xcode_fastlane.json\",
