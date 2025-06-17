@@ -1,6 +1,5 @@
 name: Unity Build Automation for RC Branches
 
-
 on:
   workflow_call:
     secrets:
@@ -10,15 +9,25 @@ on:
         required: false
       ANDROID_CREDENTIAL_ID:
         required: false
+      GOOGLE_PLAY_JSON_BASE64:
+        required: false
+      FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
 
 env:
   UNITY_API_BASE_URL: https://build-api.cloud.unity3d.com/api/v1
   UNITY_API_TOKEN: ${{ secrets.UNITY_API_TOKEN }}
   ORG_ID: ${{ vars.UNITY_ORG_ID }}
   PROJECT_ID: ${{ vars.UNITY_PRODUCT_ID }}
-  BUNDLE_ID: ${{ vars.BUNDLE_ID }}
+  ANDROID_BUNDLE_ID: ${{ vars.ANDROID_BUNDLE_ID }}
+  IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
   ANDROID_SDK_VERSION: ${{ vars.ANDROID_SDK_VERSION }}
   X_CODE_VERSION: ${{ vars.X_CODE_VERSION }}
+  VERSION_CODE: ${{ vars.VERSION_CODE }}
+  VERSION_NAME: ${{ vars.VERSION_NAME }}
+  TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
 
 jobs:
   setup-unity-build:
@@ -32,6 +41,10 @@ jobs:
         env:
           IOS_CREDENTIAL_ID: ${{ secrets.IOS_CREDENTIAL_ID }}
           ANDROID_CREDENTIAL_ID: ${{ secrets.ANDROID_CREDENTIAL_ID }}
+          GOOGLE_PLAY_JSON_BASE64: ${{ secrets.GOOGLE_PLAY_JSON_BASE64 }}
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          
         run: |
           set -e
 
@@ -76,18 +89,22 @@ jobs:
             echo "Creating build targets for environment: $ENV"
 
             # Determine environment-specific variables
+            BUILD_APP_BUNDLE=false
             if [[ "$ENV" == "production" ]]; then
               AUTO_BUILD=false
               AUTO_CANCEL=false
               BUILD_OPTIONS="[]"
+              BUILD_APP_BUNDLE=true
+              ANDROID_PLAY_STORE_TRACK="production"
             elif [[ "$ENV" == "development" ]]; then
               AUTO_BUILD=false
               AUTO_CANCEL=false
               BUILD_OPTIONS="[\"Development\"]"
+              ANDROID_PLAY_STORE_TRACK="internal"
             fi
 
-            # Initialize array to store successful build target IDs
-            BUILD_TARGET_IDS=()
+            echo "Build App Bundles: ${BUILD_APP_BUNDLE}"
+            echo "Android Play Store Track for ${ENV}: ${ANDROID_PLAY_STORE_TRACK}"
 
             # -------- 1. Create Android Build Target --------
             if [[ -n "$ANDROID_CREDENTIAL_ID" ]]; then
@@ -113,16 +130,19 @@ jobs:
                       \"branch\": \"${BRANCH_NAME}\"
                     },
                     \"platform\": {
-                      \"bundleId\": \"$BUNDLE_ID\"
+                      \"bundleId\": \"$ANDROID_BUNDLE_ID\"
                     },
                     \"advanced\": {
                       \"unity\": {
                         \"playerExporter\": {
                           \"buildOptions\": ${BUILD_OPTIONS}
-                        }
+                        },
+                        \"preBuildScript\": \"SwBuildScripts/pre_script_publish.sh\",
+                        \"postBuildScript\": \"SwBuildScripts/post_build_script.sh\"
                       },
                       \"android\": {
-                        \"androidSDKVersion\": \"$ANDROID_SDK_VERSION\"
+                        \"androidSDKVersion\": \"$ANDROID_SDK_VERSION\",
+                        \"buildAppBundle\": ${BUILD_APP_BUNDLE}
                       }
                     }
                   },
@@ -137,12 +157,23 @@ jobs:
               echo "$ANDROID_RESPONSE" | jq .
 
               ANDROID_BUILD_TARGET_ID=$(echo "$ANDROID_RESPONSE" | jq -r '.buildtargetid')
-
               if [[ "$ANDROID_BUILD_TARGET_ID" != "null" && -n "$ANDROID_BUILD_TARGET_ID" ]]; then
                 echo "Android Build Target Created: $ANDROID_BUILD_TARGET_ID"
-                BUILD_TARGET_IDS+=("$ANDROID_BUILD_TARGET_ID")
+
+                # Add environment variables for Android publishing
+                curl -s -X PUT "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildtargets/$ANDROID_BUILD_TARGET_ID/envvars" \
+                -H "Authorization: Bearer $UNITY_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"envvars\": {
+                    \"VERSION_CODE\": \"${VERSION_CODE}\",
+                    \"GOOGLE_PLAY_JSON_BASE64\": \"${GOOGLE_PLAY_JSON_BASE64}\",
+                    \"ANDROID_PLAY_STORE_TRACK\": \"${ANDROID_PLAY_STORE_TRACK}\"
+                  }
+                }"
               else
-                echo "Failed to create Android Build Target for environment: $ENV"
+                echo "Failed to create Android Build Target. Response: $ANDROID_RESPONSE"
+                continue
               fi
             else
               echo "Skipping Android Build Target creation: Missing credentials."
@@ -172,14 +203,20 @@ jobs:
                       \"branch\": \"${BRANCH_NAME}\"
                     },
                     \"platform\": {
-                      \"bundleId\": \"$BUNDLE_ID\",
+                      \"bundleId\": \"$IOS_BUNDLE_ID\",
                       \"xcodeVersion\": \"$X_CODE_VERSION\"
                     },
                     \"advanced\": {
                       \"unity\": {
                         \"playerExporter\": {
                           \"buildOptions\": ${BUILD_OPTIONS}
-                        }
+                        },
+                        \"preBuildScript\": \"SwBuildScripts/pre_script_publish.sh\",
+                        \"postBuildScript\": \"SwBuildScripts/post_build_script.sh\"
+                      },
+                      \"xcode\": {
+                        \"customFastlaneConfigPath\": \"fastlane/ucb_xcode_fastlane.json\",
+                        \"uploadXCArchive\": true
                       }
                     }
                   },
@@ -194,36 +231,45 @@ jobs:
               echo "$IOS_RESPONSE" | jq .
 
               IOS_BUILD_TARGET_ID=$(echo "$IOS_RESPONSE" | jq -r '.buildtargetid')
-
               if [[ "$IOS_BUILD_TARGET_ID" != "null" && -n "$IOS_BUILD_TARGET_ID" ]]; then
                 echo "iOS Build Target Created: $IOS_BUILD_TARGET_ID"
-                BUILD_TARGET_IDS+=("$IOS_BUILD_TARGET_ID")
+
+                # Add environment variables for iOS publishing
+                curl -s -X PUT "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildtargets/$IOS_BUILD_TARGET_ID/envvars" \
+                -H "Authorization: Bearer $UNITY_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"envvars\": {
+                    \"VERSION_NAME\": \"${VERSION_NAME}\",
+                    \"TEAM_ID\": \"${TEAM_ID}\",
+                    \"FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD\": \"${FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD}\",
+                    \"APPLE_ID\": \"${APPLE_ID}\"
+                  }
+                }"
               else
-                echo "Failed to create iOS Build Target for environment: $ENV"
+                echo "Failed to create iOS Build Target. Response: $IOS_RESPONSE"
+                continue
               fi
             else
               echo "Skipping iOS Build Target creation: Missing credentials."
             fi
 
             # -------- 3. Create Build Group --------
-            if [[ ${#BUILD_TARGET_IDS[@]} -gt 0 ]]; then
-              echo "Creating Build Group with targets: ${BUILD_TARGET_IDS[*]}"
-          
-              BUILD_TARGET_IDS_JSON=$(printf '%s\n' "${BUILD_TARGET_IDS[@]}" | jq -R . | jq -s .)
-
+            if [[ -n "$ANDROID_BUILD_TARGET_ID" || -n "$IOS_BUILD_TARGET_ID" ]]; then
+              echo "Creating Build Group for environment: $ENV"
               BUILD_GROUP_RESPONSE=$(curl -s -X POST "$UNITY_API_BASE_URL/orgs/$ORG_ID/projects/$PROJECT_ID/buildTargetGroups" \
-                -H "Authorization: Bearer $UNITY_API_TOKEN" \
-                -H "Content-Type: application/json" \
-                -d "{
+              -H "Authorization: Bearer $UNITY_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{
                 \"name\": \"${ENV}-group-${SANITIZED_BRANCH_NAME}\",
                 \"description\": \"${BRANCH_NAME} Build group for ${ENV}\",
-                \"buildTargetIds\": $BUILD_TARGET_IDS_JSON
+                \"buildTargetIds\": [\"${ANDROID_BUILD_TARGET_ID}\", \"${IOS_BUILD_TARGET_ID}\"]
               }")
 
               echo "Build Group Response:"
               echo "$BUILD_GROUP_RESPONSE" | jq .
             else
-              echo "No Build Targets created for $ENV. Skipping Build Group creation."
+              echo "Skipping Build Group creation: No valid build targets created for $ENV."
             fi
           done
 
