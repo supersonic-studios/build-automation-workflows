@@ -1,0 +1,8 @@
+{
+  "fastfile": "fastlane/Fastfile",
+  "gymfile": "fastlane/Gymfile",
+  "lanes": {
+    "pre_build": "change_versions",
+    "post_build": "upload_build"
+  }
+}
